@@ -13,21 +13,5 @@
             "src": "/(.*)",
             "dest": "/public/$1"
         }
-    ],
-    "builds": [
-        {
-            "src": "api/**/*.php",
-            "use": "@vercel/php"
-        },
-        {
-            "src": "public/**/*",
-            "use": "@vercel/static"
-        }
-    ],
-    "rewrites": [
-        {
-            "source": "/(.*)",
-            "destination": "/api/$1"
-        }
     ]
 }
