@@ -15,9 +15,6 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
-        .status-available { background: #10b981; }
-        .status-occupied { background: #ef4444; }
-        .status-reserved { background: #f59e0b; }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -28,6 +25,14 @@
                 <div>
                     <h1 class="text-3xl font-bold">🚗 VITACITY</h1>
                     <p class="text-sm opacity-90">Smart Parking Urban Nervous System</p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="/qr-scanner.html" class="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg text-sm font-medium transition">
+                        🔲 QR Scanner
+                    </a>
+                    <a href="/complaint.html" class="px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg text-sm font-medium transition">
+                        📝 Report Issue
+                    </a>
                 </div>
                 <div class="text-right">
                     <p class="text-sm font-medium">Team Tech Titan</p>
@@ -154,24 +159,11 @@
                 <span class="mr-2">📍</span> Parking Zones - Solapur
             </h2>
             <div id="zones-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <!-- Zones will be loaded here -->
                 <div class="text-center py-8 col-span-full">
                     <div class="pulse text-purple-500 text-5xl mb-4">⏳</div>
                     <p class="text-gray-500">Loading zones...</p>
                 </div>
             </div>
-        </div>
-
-        <!-- Anomaly Detection -->
-        <div class="card p-6">
-            <h2 class="text-2xl font-bold mb-4 flex items-center">
-                <span class="mr-2">🔍</span> Anomaly Detection
-            </h2>
-            <button onclick="detectAnomalies()" 
-                class="px-6 py-3 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 transition">
-                🚨 Detect Anomalies
-            </button>
-            <div id="anomalies-result" class="mt-4 hidden"></div>
         </div>
     </main>
 
@@ -189,10 +181,10 @@
     </footer>
 
     <script>
-        // API Base URL - Change this to your Vercel URL after deployment
-        const API_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:8000' 
-            : window.location.origin;
+        // FIXED API URL - Works on both localhost and Vercel
+        const API_URL = window.location.origin;
+        
+        console.log('API URL:', API_URL); // Debug
 
         // Load zones on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -202,20 +194,30 @@
         // Load all zones
         async function loadZones() {
             try {
+                console.log('Fetching zones from:', `${API_URL}/api/zones.php`);
                 const response = await fetch(`${API_URL}/api/zones.php`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
                 const data = await response.json();
+                console.log('Zones data:', data);
                 
                 if (data.zones) {
                     displayZones(data.zones);
                     updateStats(data.zones);
                     populateZoneSelector(data.zones);
+                } else if (data.error) {
+                    throw new Error(data.error);
                 }
             } catch (error) {
                 console.error('Error loading zones:', error);
                 document.getElementById('zones-container').innerHTML = `
                     <div class="col-span-full text-center py-8">
-                        <p class="text-red-500">❌ Error loading zones. Check console for details.</p>
-                        <p class="text-sm text-gray-500 mt-2">Make sure your API is running!</p>
+                        <p class="text-red-500">❌ Error loading zones</p>
+                        <p class="text-sm text-gray-500 mt-2">${error.message}</p>
+                        <p class="text-xs text-gray-400 mt-2">Check browser console for details</p>
                     </div>
                 `;
             }
@@ -265,10 +267,6 @@
                     </div>
                     
                     <div class="flex gap-2">
-                        <button onclick="viewZoneDetails('${zone.id}')" 
-                            class="flex-1 px-3 py-2 bg-purple-100 text-purple-700 rounded text-sm font-medium hover:bg-purple-200 transition">
-                            View Details
-                        </button>
                         <button onclick="predictForZone('${zone.id}')" 
                             class="flex-1 px-3 py-2 bg-blue-100 text-blue-700 rounded text-sm font-medium hover:bg-blue-200 transition">
                             🔮 Predict
@@ -347,7 +345,6 @@
                     'text-green-600'
                 }`;
                 
-                // Scroll to result
                 document.getElementById('prediction-result').scrollIntoView({ behavior: 'smooth' });
                 
             } catch (error) {
@@ -356,86 +353,11 @@
             }
         }
 
-        // Predict for specific zone (from zone card)
+        // Predict for specific zone
         function predictForZone(zoneId) {
             document.getElementById('predict-zone').value = zoneId;
-            document.getElementById('prediction-result').scrollIntoView({ behavior: 'smooth' });
-            predictCongestion();
-        }
-
-        // View zone details
-        async function viewZoneDetails(zoneId) {
-            try {
-                const response = await fetch(`${API_URL}/api/zones.php?id=${zoneId}`);
-                const data = await response.json();
-                
-                if (data.zone) {
-                    alert(`Zone: ${data.zone.name}\n` +
-                          `Total Slots: ${data.zone.total}\n` +
-                          `Available: ${data.zone.available}\n` +
-                          `Occupied: ${data.zone.occupied}\n` +
-                          `Occupancy: ${data.zone.occupancy_percent}%\n` +
-                          `Price: ₹${data.zone.price}/hour\n` +
-                          `Congestion: ${data.zone.congestion}`);
-                }
-            } catch (error) {
-                console.error('Error loading zone details:', error);
-            }
-        }
-
-        // Detect anomalies
-        async function detectAnomalies() {
-            const zoneId = document.getElementById('predict-zone').value;
-            
-            if (!zoneId) {
-                alert('Please select a zone first!');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_URL}/api/ai/anomalies.php?zone_id=${zoneId}`);
-                const data = await response.json();
-                
-                const resultDiv = document.getElementById('anomalies-result');
-                resultDiv.classList.remove('hidden');
-                
-                if (data.anomalies && data.anomalies.length > 0) {
-                    resultDiv.innerHTML = `
-                        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded">
-                            <h3 class="font-bold text-lg mb-3">🚨 ${data.anomalies_detected} Anomalies Detected:</h3>
-                            <div class="space-y-3">
-                                ${data.anomalies.map(a => `
-                                    <div class="bg-white p-3 rounded border ${
-                                        a.severity === 'critical' ? 'border-red-300' : 'border-yellow-300'
-                                    }">
-                                        <div class="flex justify-between items-start">
-                                            <div>
-                                                <p class="font-semibold">${a.type.replace('_', ' ').toUpperCase()}</p>
-                                                <p class="text-sm text-gray-600">${a.message}</p>
-                                            </div>
-                                            <span class="px-2 py-1 rounded text-xs font-medium ${
-                                                a.severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                                            }">
-                                                ${a.severity}
-                                            </span>
-                                        </div>
-                                        <p class="text-xs text-gray-500 mt-2">Action: ${a.action}</p>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-                            <p class="text-green-700 font-medium">✅ No anomalies detected in this zone!</p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error detecting anomalies:', error);
-                alert('Failed to detect anomalies. Check console for details.');
-            }
+            window.scrollTo({ top: 300, behavior: 'smooth' });
+            setTimeout(() => predictCongestion(), 500);
         }
 
         // Auto-refresh zones every 30 seconds

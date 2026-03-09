@@ -12,26 +12,22 @@
     </style>
 </head>
 <body class="bg-gray-50">
-    <!-- Header -->
     <header class="gradient-bg text-white shadow-lg">
         <div class="container mx-auto px-4 py-4">
             <div class="flex justify-between items-center">
                 <h1 class="text-2xl font-bold">🔲 QR Scanner</h1>
-                <a href="index.html" class="px-4 py-2 bg-white text-purple-600 rounded-lg">← Back</a>
+                <a href="/" class="px-4 py-2 bg-white text-purple-600 rounded-lg">← Back</a>
             </div>
         </div>
     </header>
 
     <main class="container mx-auto px-4 py-8">
-        <!-- Scanner Section -->
         <div class="max-w-2xl mx-auto">
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
                 <h2 class="text-xl font-bold mb-4">Scan Vehicle QR Code</h2>
                 
-                <!-- QR Reader -->
                 <div id="qr-reader" class="mb-4"></div>
                 
-                <!-- Manual Input -->
                 <div class="mt-4">
                     <p class="text-sm text-gray-600 mb-2">Or enter QR code manually:</p>
                     <div class="flex gap-2">
@@ -45,131 +41,44 @@
                 </div>
             </div>
 
-            <!-- Results -->
             <div id="scan-result" class="hidden">
                 <div class="bg-white rounded-lg shadow-lg p-6">
                     <h3 class="text-xl font-bold mb-4">Vehicle Details</h3>
-                    
-                    <!-- Vehicle Info -->
-                    <div class="space-y-4">
-                        <div class="border-b pb-4">
-                            <h4 class="font-semibold text-gray-700 mb-2">Vehicle Information</h4>
-                            <div class="grid grid-cols-2 gap-3 text-sm">
-                                <div>
-                                    <span class="text-gray-600">License Plate:</span>
-                                    <p id="vehicle-plate" class="font-bold text-lg"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Type:</span>
-                                    <p id="vehicle-type" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Model:</span>
-                                    <p id="vehicle-model" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Color:</span>
-                                    <p id="vehicle-color" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Total Trips:</span>
-                                    <p id="vehicle-trips" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Status:</span>
-                                    <p id="vehicle-status" class="font-medium"></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Owner Info -->
-                        <div class="border-b pb-4">
-                            <h4 class="font-semibold text-gray-700 mb-2">Owner Information</h4>
-                            <div class="grid grid-cols-2 gap-3 text-sm">
-                                <div>
-                                    <span class="text-gray-600">Name:</span>
-                                    <p id="owner-name" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Phone:</span>
-                                    <p id="owner-phone" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Email:</span>
-                                    <p id="owner-email" class="font-medium"></p>
-                                </div>
-                                <div>
-                                    <span class="text-gray-600">Reward Points:</span>
-                                    <p id="owner-points" class="font-medium text-purple-600"></p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Active Booking -->
-                        <div id="active-booking-section" class="border-b pb-4 hidden">
-                            <h4 class="font-semibold text-gray-700 mb-2">Active Booking</h4>
-                            <div id="active-booking-content" class="text-sm"></div>
-                        </div>
-
-                        <!-- Violations -->
-                        <div id="violations-section" class="hidden">
-                            <h4 class="font-semibold text-gray-700 mb-2">Violation History</h4>
-                            <div id="violations-list" class="space-y-2"></div>
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="flex gap-3 pt-4">
-                            <button onclick="fileComplaint()" 
-                                class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600">
-                                🚨 Report Wrong Parking
-                            </button>
-                            <button onclick="contactOwner()" 
-                                class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
-                                📞 Contact Owner
-                            </button>
-                        </div>
-                    </div>
+                    <div id="result-content"></div>
                 </div>
             </div>
         </div>
     </main>
 
     <script>
-        const API_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost/vitacity' 
-            : window.location.origin;
-
+        // FIXED API URL
+        const API_URL = window.location.origin;
+        
         let html5QrcodeScanner;
-        let currentVehicleData = null;
 
-        // Initialize QR Scanner
         document.addEventListener('DOMContentLoaded', () => {
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "qr-reader",
-                { 
-                    fps: 10, 
-                    qrbox: { width: 250, height: 250 },
-                    aspectRatio: 1.0
-                },
-                false
-            );
-            
-            html5QrcodeScanner.render(onScanSuccess, onScanError);
+            try {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "qr-reader",
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    false
+                );
+                html5QrcodeScanner.render(onScanSuccess, onScanError);
+            } catch (e) {
+                console.error('QR Scanner init error:', e);
+            }
         });
 
-        // Handle successful QR scan
-        function onScanSuccess(decodedText, decodedResult) {
-            console.log(`QR Code detected: ${decodedText}`);
+        function onScanSuccess(decodedText) {
+            console.log(`QR Code: ${decodedText}`);
             html5QrcodeScanner.clear();
             fetchVehicleDetails(decodedText);
         }
 
-        // Handle scan error (silent - happens constantly)
         function onScanError(error) {
-            // Silent - scanning continuously
+            // Silent
         }
 
-        // Scan manually entered code
         function scanManualCode() {
             const code = document.getElementById('manual-qr').value.trim();
             if (!code) {
@@ -179,7 +88,6 @@
             fetchVehicleDetails(code);
         }
 
-        // Fetch vehicle details from API
         async function fetchVehicleDetails(qrCode) {
             try {
                 const response = await fetch(`${API_URL}/api/qr/generate.php?code=${qrCode}`);
@@ -190,77 +98,42 @@
                     return;
                 }
                 
-                currentVehicleData = data;
                 displayVehicleDetails(data);
                 
             } catch (error) {
-                console.error('Error fetching vehicle:', error);
+                console.error('Error:', error);
                 alert('Failed to fetch vehicle details');
             }
         }
 
-        // Display vehicle details
         function displayVehicleDetails(data) {
-            // Vehicle info
-            document.getElementById('vehicle-plate').textContent = data.vehicle.license_plate;
-            document.getElementById('vehicle-type').textContent = data.vehicle.vehicle_type;
-            document.getElementById('vehicle-model').textContent = data.vehicle.model || 'N/A';
-            document.getElementById('vehicle-color').textContent = data.vehicle.color || 'N/A';
-            document.getElementById('vehicle-trips').textContent = data.vehicle.total_trips;
-            document.getElementById('vehicle-status').textContent = data.vehicle.status;
-
-            // Owner info
-            document.getElementById('owner-name').textContent = data.owner.name;
-            document.getElementById('owner-phone').textContent = data.owner.phone;
-            document.getElementById('owner-email').textContent = data.owner.email;
-            document.getElementById('owner-points').textContent = data.owner.reward_points + ' pts';
-
-            // Active booking
-            if (data.active_booking) {
-                document.getElementById('active-booking-section').classList.remove('hidden');
-                document.getElementById('active-booking-content').innerHTML = `
-                    <div class="bg-green-50 p-3 rounded border border-green-200">
-                        <p class="font-medium text-green-800">Booking: ${data.active_booking.booking_code}</p>
-                        <p class="text-sm text-green-700">Zone: ${data.active_booking.zone} | Slot: ${data.active_booking.slot}</p>
-                        <p class="text-xs text-green-600 mt-1">Valid until: ${new Date(data.active_booking.end).toLocaleString()}</p>
+            const content = `
+                <div class="space-y-4">
+                    <div class="border-b pb-4">
+                        <h4 class="font-semibold mb-2">Vehicle Information</h4>
+                        <p><span class="text-gray-600">License:</span> <strong>${data.vehicle.license_plate}</strong></p>
+                        <p><span class="text-gray-600">Type:</span> ${data.vehicle.vehicle_type}</p>
                     </div>
-                `;
-            }
-
-            // Violations
-            if (data.violations && data.violations.length > 0) {
-                document.getElementById('violations-section').classList.remove('hidden');
-                document.getElementById('violations-list').innerHTML = data.violations.map(v => `
-                    <div class="bg-red-50 p-2 rounded border border-red-200 text-sm">
-                        <p class="font-medium text-red-800">${v.type}</p>
-                        <p class="text-xs text-red-600">${v.title} - ${new Date(v.date).toLocaleDateString()}</p>
+                    <div class="border-b pb-4">
+                        <h4 class="font-semibold mb-2">Owner</h4>
+                        <p><span class="text-gray-600">Name:</span> ${data.owner.name}</p>
+                        <p><span class="text-gray-600">Phone:</span> ${data.owner.phone}</p>
                     </div>
-                `).join('');
-            }
-
-            // Show results
+                    <div class="flex gap-3">
+                        <button onclick="window.location.href='/complaint.html?vehicle=${data.vehicle.license_plate}'" 
+                            class="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg">
+                            🚨 Report Wrong Parking
+                        </button>
+                        <button onclick="window.location.href='tel:${data.owner.phone}'" 
+                            class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg">
+                            📞 Call Owner
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('result-content').innerHTML = content;
             document.getElementById('scan-result').classList.remove('hidden');
-            document.getElementById('scan-result').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // File complaint
-        function fileComplaint() {
-            if (!currentVehicleData) return;
-            
-            const plate = currentVehicleData.vehicle.license_plate;
-            window.location.href = `complaint.html?vehicle=${plate}`;
-        }
-
-        // Contact owner
-        function contactOwner() {
-            if (!currentVehicleData) return;
-            
-            const phone = currentVehicleData.owner.phone;
-            const name = currentVehicleData.owner.name;
-            
-            if (confirm(`Call ${name} at ${phone}?`)) {
-                window.location.href = `tel:${phone}`;
-            }
         }
     </script>
 </body>
