@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Parking - VITACITY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Leaflet Maps (FREE - no API key needed!) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        #map { height: 400px; width: 100%; border-radius: 12px; }
+        .slot {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .slot.available {
+            background: #10b981;
+            color: white;
+        }
+        .slot.available:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+        }
+        .slot.occupied {
+            background: #ef4444;
+            color: white;
+            cursor: not-allowed;
+        }
+        .slot.selected {
+            background: #8b5cf6;
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(139, 92, 246, 0.5);
+        }
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">🚗 Book Parking</h1>
+                <div class="flex gap-2 items-center">
+                    <span id="user-membership" class="px-3 py-1 bg-white bg-opacity-20 rounded-lg text-sm"></span>
+                    <a href="/dashboard.html" class="px-4 py-2 bg-white text-purple-600 rounded-lg">Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Step 1: Zone Selection with Map -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">Step 1: Select Zone</h2>
+            
+            <!-- Real-time Map -->
+            <div id="map" class="mb-4"></div>
+            
+            <!-- Zone Cards -->
+            <div id="zones-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                <div class="text-center py-8 col-span-full">
+                    <div class="pulse-dot text-purple-500 text-4xl mb-2">⏳</div>
+                    <p class="text-gray-500">Loading zones...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Slot Selection (BookMyShow style) -->
+        <div id="slot-selection" class="hidden bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-2xl font-bold mb-4">Step 2: Select Slot</h2>
+            
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 id="selected-zone-name" class="text-xl font-semibold"></h3>
+                    <p class="text-sm text-gray-600">Choose an available slot (green)</p>
+                </div>
+                <div class="flex gap-4 text-sm">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-green-500 rounded"></div>
+                        <span>Available</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-red-500 rounded"></div>
+                        <span>Occupied</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 bg-purple-500 rounded"></div>
+                        <span>Selected</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slot Grid (like BookMyShow seats) -->
+            <div id="slots-grid" class="flex flex-wrap gap-2 justify-center p-4 bg-gray-50 rounded-lg">
+                <!-- Slots will be dynamically loaded -->
+            </div>
+        </div>
+
+        <!-- Step 3: Duration & Payment -->
+        <div id="payment-section" class="hidden bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-bold mb-4">Step 3: Duration & Payment</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Left: Booking Details -->
+                <div>
+                    <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded mb-4">
+                        <h3 class="font-bold">Booking Summary</h3>
+                        <p class="text-sm mt-2"><span class="text-gray-600">Zone:</span> <span id="summary-zone" class="font-medium"></span></p>
+                        <p class="text-sm"><span class="text-gray-600">Slot:</span> <span id="summary-slot" class="font-medium"></span></p>
+                        <p class="text-sm"><span class="text-gray-600">Rate:</span> ₹<span id="summary-rate"></span>/hour</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-2">Duration (hours)</label>
+                        <input type="number" id="duration-hours" value="2" min="1" max="24" 
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg"
+                            onchange="calculateTotal()">
+                    </div>
+
+                    <div class="bg-gray-100 p-4 rounded-lg">
+                        <div class="flex justify-between mb-2">
+                            <span>Subtotal:</span>
+                            <span id="subtotal">₹0</span>
+                        </div>
+                        <div class="flex justify-between mb-2 text-green-600">
+                            <span>Discount (<span id="discount-percent">0</span>%):</span>
+                            <span id="discount-amount">-₹0</span>
+                        </div>
+                        <div class="flex justify-between font-bold text-lg border-t pt-2">
+                            <span>Total:</span>
+                            <span id="total-amount">₹0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Payment Options -->
+                <div>
+                    <h3 class="font-semibold mb-3">Select Payment Method</h3>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition">
+                            <input type="radio" name="payment" value="upi" checked class="mr-3">
+                            <div class="flex-1">
+                                <p class="font-medium">UPI Payment</p>
+                                <p class="text-sm text-gray-600">Pay with any UPI app</p>
+                            </div>
+                            <span class="text-2xl">📱</span>
+                        </label>
+
+                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition">
+                            <input type="radio" name="payment" value="rewards" class="mr-3">
+                            <div class="flex-1">
+                                <p class="font-medium">Use Reward Points</p>
+                                <p class="text-sm text-gray-600">Available: <span id="user-points">0</span> pts</p>
+                            </div>
+                            <span class="text-2xl">🎁</span>
+                        </label>
+
+                        <label class="flex items-center p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-purple-500 transition">
+                            <input type="radio" name="payment" value="card" class="mr-3">
+                            <div class="flex-1">
+                                <p class="font-medium">Credit/Debit Card</p>
+                                <p class="text-sm text-gray-600">Secure payment</p>
+                            </div>
+                            <span class="text-2xl">💳</span>
+                        </label>
+                    </div>
+
+                    <button onclick="proceedToPayment()" 
+                        class="w-full mt-6 gradient-bg text-white py-4 rounded-lg font-bold text-lg hover:opacity-90 transition">
+                        Proceed to Pay ₹<span id="pay-amount">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = window.location.origin;
+        
+        // Check login
+        const userId = localStorage.getItem('vitacity_user_id');
+        const userName = localStorage.getItem('vitacity_user_name');
+        const membership = localStorage.getItem('vitacity_membership') || 'Bronze';
+        const rewardPoints = localStorage.getItem('vitacity_reward_points') || 0;
+        
+        if (!userId) {
+            alert('Please login first!');
+            window.location.href = '/login.html';
+        }
+
+        // Display membership
+        document.getElementById('user-membership').textContent = `${membership} Member`;
+        document.getElementById('user-points').textContent = rewardPoints;
+
+        // Booking state
+        let selectedZone = null;
+        let selectedSlot = null;
+        let map = null;
+        let markers = [];
+
+        // Initialize map
+        function initMap() {
+            // Center on Solapur
+            map = L.map('map').setView([17.6599, 75.9064], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Load zones
+        async function loadZones() {
+            try {
+                const response = await fetch(`${API_URL}/api/zones.php`);
+                const data = await response.json();
+                
+                if (data.zones) {
+                    displayZones(data.zones);
+                }
+            } catch (error) {
+                console.error('Error loading zones:', error);
+            }
+        }
+
+        // Display zones on map and grid
+        function displayZones(zones) {
+            const grid = document.getElementById('zones-grid');
+            grid.innerHTML = '';
+            
+            zones.forEach(zone => {
+                // Add marker to map
+                const marker = L.marker([zone.latitude, zone.longitude]).addTo(map);
+                marker.bindPopup(`<b>${zone.name}</b><br>${zone.available} / ${zone.total} available`);
+                marker.on('click', () => selectZone(zone));
+                markers.push(marker);
+                
+                // Add card to grid
+                const card = document.createElement('div');
+                card.className = 'border-2 border-gray-200 rounded-lg p-4 cursor-pointer hover:border-purple-500 transition';
+                card.onclick = () => selectZone(zone);
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="font-bold">${zone.name}</h3>
+                            <p class="text-sm text-gray-600">${zone.id}</p>
+                        </div>
+                        <span class="px-2 py-1 rounded text-xs font-medium ${
+                            zone.congestion === 'High' ? 'bg-red-100 text-red-700' :
+                            zone.congestion === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-green-100 text-green-700'
+                        }">${zone.congestion}</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-gray-600">Available:</span>
+                        <span class="font-semibold text-green-600">${zone.available} / ${zone.total}</span>
+                    </div>
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-600">Price:</span>
+                        <span class="font-semibold text-purple-600">₹${zone.price}/hr</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-3">
+                        <div class="bg-${zone.occupancy_percent >= 80 ? 'red' : zone.occupancy_percent >= 60 ? 'yellow' : 'green'}-500 h-2 rounded-full" 
+                             style="width: ${zone.occupancy_percent}%"></div>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // Select zone
+        async function selectZone(zone) {
+            selectedZone = zone;
+            document.getElementById('selected-zone-name').textContent = zone.name;
+            document.getElementById('slot-selection').classList.remove('hidden');
+            document.getElementById('slot-selection').scrollIntoView({ behavior: 'smooth' });
+            
+            // Load slots for this zone
+            await loadSlots(zone.id);
+        }
+
+        // Load slots
+        async function loadSlots(zoneId) {
+            try {
+                const response = await fetch(`${API_URL}/api/zones.php?id=${zoneId}`);
+                const data = await response.json();
+                
+                if (data.slots) {
+                    displaySlots(data.slots);
+                }
+            } catch (error) {
+                console.error('Error loading slots:', error);
+            }
+        }
+
+        // Display slots (BookMyShow style)
+        function displaySlots(slots) {
+            const grid = document.getElementById('slots-grid');
+            grid.innerHTML = '';
+            
+            slots.forEach(slot => {
+                const div = document.createElement('div');
+                div.className = `slot ${slot.state}`;
+                div.textContent = slot.slot_number;
+                
+                if (slot.state === 'available') {
+                    div.onclick = () => selectSlot(slot);
+                }
+                
+                grid.appendChild(div);
+            });
+        }
+
+        // Select slot
+        function selectSlot(slot) {
+            selectedSlot = slot;
+            
+            // Update UI
+            document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+            event.target.classList.add('selected');
+            
+            // Show payment section
+            document.getElementById('payment-section').classList.remove('hidden');
+            document.getElementById('payment-section').scrollIntoView({ behavior: 'smooth' });
+            
+            // Update summary
+            document.getElementById('summary-zone').textContent = selectedZone.name;
+            document.getElementById('summary-slot').textContent = slot.slot_number;
+            document.getElementById('summary-rate').textContent = selectedZone.price;
+            
+            calculateTotal();
+        }
+
+        // Calculate total with discount
+        function calculateTotal() {
+            const hours = parseInt(document.getElementById('duration-hours').value);
+            const rate = parseFloat(selectedZone.price);
+            const subtotal = hours * rate;
+            
+            // Membership discounts
+            const discounts = {
+                'Bronze': 0,
+                'Silver': 5,
+                'Gold': 10,
+                'Platinum': 15
+            };
+            
+            const discountPercent = discounts[membership] || 0;
+            const discountAmount = subtotal * (discountPercent / 100);
+            const total = subtotal - discountAmount;
+            
+            document.getElementById('subtotal').textContent = '₹' + subtotal;
+            document.getElementById('discount-percent').textContent = discountPercent;
+            document.getElementById('discount-amount').textContent = '-₹' + discountAmount.toFixed(2);
+            document.getElementById('total-amount').textContent = '₹' + total.toFixed(2);
+            document.getElementById('pay-amount').textContent = total.toFixed(2);
+        }
+
+        // Proceed to payment
+        function proceedToPayment() {
+            const paymentMethod = document.querySelector('input[name="payment"]:checked').value;
+            const amount = parseFloat(document.getElementById('total-amount').textContent.replace('₹', ''));
+            
+            // Save booking details
+            const bookingData = {
+                user_id: userId,
+                zone_id: selectedZone.id,
+                slot_id: selectedSlot.id,
+                hours: parseInt(document.getElementById('duration-hours').value),
+                amount: amount,
+                payment_method: paymentMethod
+            };
+            
+            localStorage.setItem('pending_booking', JSON.stringify(bookingData));
+            
+            // Redirect to payment page
+            window.location.href = `/payment.html?method=${paymentMethod}&amount=${amount}`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadZones();
+        });
+    </script>
+</body>
+</html>

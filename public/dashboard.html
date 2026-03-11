@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - VITACITY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-2xl font-bold">👤 My Dashboard</h1>
+                    <p class="text-sm opacity-90" id="user-greeting"></p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="/booking.html" class="px-4 py-2 bg-white text-purple-600 rounded-lg font-medium">
+                        🚗 Book Parking
+                    </a>
+                    <button onclick="logout()" class="px-4 py-2 bg-white bg-opacity-20 rounded-lg">
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Membership</p>
+                        <p id="membership" class="text-2xl font-bold text-purple-600"></p>
+                    </div>
+                    <span class="text-4xl">⭐</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Reward Points</p>
+                        <p id="points" class="text-2xl font-bold text-green-600"></p>
+                    </div>
+                    <span class="text-4xl">🎁</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Total Bookings</p>
+                        <p id="total-bookings" class="text-2xl font-bold text-blue-600">0</p>
+                    </div>
+                    <span class="text-4xl">📊</span>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm">Money Saved</p>
+                        <p id="savings" class="text-2xl font-bold text-purple-600">₹0</p>
+                    </div>
+                    <span class="text-4xl">💰</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Active Bookings -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Active Bookings</h2>
+                    <div id="active-bookings">
+                        <div class="text-center py-8 text-gray-500">
+                            <p>No active bookings</p>
+                            <a href="/booking.html" class="text-purple-600 hover:underline">Book a slot now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Booking History -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                    <h2 class="text-xl font-bold mb-4">Booking History</h2>
+                    <div id="booking-history">
+                        <div class="text-center py-8 text-gray-500">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile & Quick Actions -->
+            <div>
+                <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                    <h2 class="text-xl font-bold mb-4">Profile</h2>
+                    <div class="space-y-3">
+                        <div>
+                            <p class="text-sm text-gray-600">Name</p>
+                            <p id="user-name" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Email</p>
+                            <p id="user-email" class="font-medium"></p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-600">Emergency Contact</p>
+                            <p id="emergency-contact" class="font-medium text-red-600"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-bold mb-4">Quick Actions</h2>
+                    <div class="space-y-2">
+                        <a href="/booking.html" class="block w-full p-3 bg-purple-100 text-purple-700 rounded-lg text-center font-medium hover:bg-purple-200">
+                            🚗 Book Parking
+                        </a>
+                        <a href="/qr-scanner.html" class="block w-full p-3 bg-blue-100 text-blue-700 rounded-lg text-center font-medium hover:bg-blue-200">
+                            🔲 Scan QR Code
+                        </a>
+                        <a href="/complaint.html" class="block w-full p-3 bg-red-100 text-red-700 rounded-lg text-center font-medium hover:bg-red-200">
+                            📝 Report Issue
+                        </a>
+                        <a href="/" class="block w-full p-3 bg-gray-100 text-gray-700 rounded-lg text-center font-medium hover:bg-gray-200">
+                            🏠 View Zones
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_URL = window.location.origin;
+        
+        // Check login
+        const userId = localStorage.getItem('vitacity_user_id');
+        if (!userId) {
+            window.location.href = '/login.html';
+        }
+
+        // Load user data
+        const userName = localStorage.getItem('vitacity_user_name');
+        const userEmail = localStorage.getItem('vitacity_user_email');
+        const membership = localStorage.getItem('vitacity_membership');
+        const points = localStorage.getItem('vitacity_reward_points');
+        const emergencyContact = JSON.parse(localStorage.getItem('vitacity_emergency_contact') || '{}');
+
+        // Display user info
+        document.getElementById('user-greeting').textContent = `Welcome back, ${userName}!`;
+        document.getElementById('user-name').textContent = userName;
+        document.getElementById('user-email').textContent = userEmail;
+        document.getElementById('membership').textContent = membership;
+        document.getElementById('points').textContent = points;
+        document.getElementById('emergency-contact').textContent = `${emergencyContact.name} - ${emergencyContact.phone}`;
+
+        // Load bookings
+        async function loadBookings() {
+            try {
+                const response = await fetch(`${API_URL}/api/bookings.php?user_id=${userId}`);
+                const data = await response.json();
+                
+                if (data.bookings) {
+                    displayBookings(data.bookings);
+                    document.getElementById('total-bookings').textContent = data.total || 0;
+                }
+            } catch (error) {
+                console.error('Error loading bookings:', error);
+            }
+        }
+
+        function displayBookings(bookings) {
+            const active = bookings.filter(b => b.status === 'active' || b.status === 'pending');
+            const history = bookings.filter(b => b.status === 'completed');
+
+            // Active bookings
+            const activeContainer = document.getElementById('active-bookings');
+            if (active.length > 0) {
+                activeContainer.innerHTML = active.map(b => `
+                    <div class="border-l-4 border-green-500 bg-green-50 p-4 rounded mb-3">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-bold">${b.code}</p>
+                                <p class="text-sm text-gray-600">${b.zone_name} - Slot ${b.slot_id}</p>
+                                <p class="text-sm">Until: ${new Date(b.end).toLocaleString()}</p>
+                            </div>
+                            <span class="px-2 py-1 bg-green-600 text-white rounded text-xs">Active</span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // History
+            const historyContainer = document.getElementById('booking-history');
+            if (history.length > 0) {
+                historyContainer.innerHTML = history.slice(0, 5).map(b => `
+                    <div class="border-b pb-3 mb-3">
+                        <div class="flex justify-between">
+                            <div>
+                                <p class="font-medium">${b.zone_name}</p>
+                                <p class="text-sm text-gray-600">${new Date(b.start).toLocaleDateString()}</p>
+                            </div>
+                            <span class="text-purple-600 font-bold">₹${b.total_cost || 0}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } else {
+                historyContainer.innerHTML = '<p class="text-center text-gray-500 py-4">No bookings yet</p>';
+            }
+        }
+
+        function logout() {
+            localStorage.clear();
+            window.location.href = '/';
+        }
+
+        // Load data
+        loadBookings();
+    </script>
+</body>
+</html>
