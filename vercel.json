@@ -4,14 +4,14 @@
       "runtime": "vercel-php@0.7.3"
     }
   },
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/$1"
-    }
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/register.html", "destination": "/public/register.html" },
+    { "source": "/login.html",    "destination": "/public/login.html" },
+    { "source": "/booking.html",  "destination": "/public/booking.html" },
+    { "source": "/dashboard.html","destination": "/public/dashboard.html" },
+    { "source": "/complaint.html","destination": "/public/complaint.html" },
+    { "source": "/qr-scanner.html","destination": "/public/qr-scanner.html" },
+    { "source": "/(.*)",          "destination": "/public/$1" }
   ]
 }
