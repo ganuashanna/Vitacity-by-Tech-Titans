@@ -1,6 +1,6 @@
 <?php
 /**
- * VITACITY - Database Connection
+ * VITACITY - Database Connection (Fixed for Supabase)
  * Team Tech Titan - SAMVED 2026
  */
 
@@ -13,26 +13,46 @@ class Database {
         }
         
         try {
-            $db_host = getenv('DB_HOST') ?: 'db.your-project.supabase.co';
-            $db_name = getenv('DB_NAME') ?: 'postgres';
-            $db_user = getenv('DB_USER') ?: 'postgres';
-            $db_pass = getenv('DB_PASS') ?: 'your-password';
+            // Get environment variables
+            $db_host = getenv('DB_HOST');
+            $db_name = getenv('DB_NAME');
+            $db_user = getenv('DB_USER');
+            $db_pass = getenv('DB_PASS');
             $db_port = getenv('DB_PORT') ?: '5432';
             
-            $dsn = "pgsql:host=$db_host;port=$db_port;dbname=$db_name;sslmode=require";
+            // Validate required variables
+            if (!$db_host || !$db_name || !$db_user || !$db_pass) {
+                throw new Exception('Missing database credentials. Check environment variables.');
+            }
             
+            // Build DSN for PostgreSQL with SSL
+            $dsn = "pgsql:host={$db_host};port={$db_port};dbname={$db_name};sslmode=require";
+            
+            // Create PDO connection
             self::$conn = new PDO($dsn, $db_user, $db_pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::ATTR_TIMEOUT => 5
             ]);
             
             return self::$conn;
             
         } catch (PDOException $e) {
+            // Log error for debugging
+            error_log('Database connection failed: ' . $e->getMessage());
+            
             http_response_code(500);
             echo json_encode([
                 'error' => 'Database connection failed',
+                'message' => 'Could not connect to database. Please contact support.',
+                'debug' => getenv('APP_ENV') === 'development' ? $e->getMessage() : null
+            ]);
+            exit;
+        } catch (Exception $e) {
+            http_response_code(500);
+            echo json_encode([
+                'error' => 'Configuration error',
                 'message' => $e->getMessage()
             ]);
             exit;
@@ -46,10 +66,13 @@ class Database {
             $stmt->execute($params);
             return $stmt;
         } catch (PDOException $e) {
+            error_log('Query failed: ' . $e->getMessage() . ' | SQL: ' . $sql);
+            
             http_response_code(500);
             echo json_encode([
                 'error' => 'Query failed',
-                'message' => $e->getMessage()
+                'message' => getenv('APP_ENV') === 'development' ? $e->getMessage() : 'Database query error',
+                'sql' => getenv('APP_ENV') === 'development' ? $sql : null
             ]);
             exit;
         }
@@ -76,6 +99,7 @@ class Database {
     }
 }
 
+// Helper function for JSON responses
 function sendJSON($data, $statusCode = 200) {
     http_response_code($statusCode);
     header('Content-Type: application/json');
@@ -87,12 +111,19 @@ function sendJSON($data, $statusCode = 200) {
         exit(0);
     }
     
-    echo json_encode($data, JSON_PRETTY_PRINT);
+    echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
 
+// Helper function to get JSON input
 function getJSONInput() {
     $input = file_get_contents('php://input');
-    return json_decode($input, true);
+    $decoded = json_decode($input, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        sendJSON(['error' => 'Invalid JSON input'], 400);
+    }
+    
+    return $decoded ?: [];
 }
 ?>
